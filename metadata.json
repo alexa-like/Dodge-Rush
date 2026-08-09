@@ -1,0 +1,6 @@
+{
+  "name": "Dodge Rush",
+  "description": "An action-packed mobile-first 2D arcade dodge game with smooth touch controls, power-ups, skin unlocks, progressive difficulty, and retro audio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
