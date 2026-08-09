@@ -1,0 +1,15 @@
+# Explicitly declare binary files to prevent line ending corruptions (CRLF/LF)
+*.jar binary
+*.aar binary
+*.so binary
+*.zip binary
+*.apk binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+
+# Ensure gradlew scripts have LF line endings
+gradlew text eol=lf
+android/gradlew text eol=lf
