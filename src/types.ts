@@ -45,9 +45,10 @@ export interface Obstacle {
   color: string;
   rotation: number;
   rotationSpeed: number;
-  warningTime?: number; // for laser/fast spike warning
+  warningTime?: number;
   health?: number;
   hasSplit?: boolean;
+  nearMissTriggered?: boolean;
 }
 
 export interface Item {
@@ -80,7 +81,7 @@ export interface GameStats {
   totalGamesPlayed: number;
   totalDodges: number;
   totalCoinsCollected: number;
-  longestSurvivalTime: number; // in seconds
+  longestSurvivalTime: number;
 }
 
 export interface GameSettings {
@@ -93,7 +94,7 @@ export interface GameSettings {
 
 export interface ActivePowerUp {
   type: PowerUpType;
-  duration: number; // in milliseconds remaining
+  duration: number;
   maxDuration: number;
 }
 

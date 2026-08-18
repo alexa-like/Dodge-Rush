@@ -39,7 +39,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const lastTimeRef = useRef<number>(0);
 
   // Dash & PowerUp Timers
-  const dashCooldownRef = useRef(0); // 0 to 100
+  const dashCooldownRef = useRef(0);
   const isDashingRef = useRef(false);
   const dashTimeRemainingRef = useRef(0);
 
@@ -137,7 +137,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (dashCooldownRef.current >= 100 && !isDashingRef.current && gameState === 'PLAYING') {
       dashCooldownRef.current = 0;
       isDashingRef.current = true;
-      dashTimeRemainingRef.current = 250; // 250ms dash
+      dashTimeRemainingRef.current = 250;
 
       soundEngine.playDash(settings.soundEnabled);
       soundEngine.vibrate([20, 30, 20], settings.vibrationEnabled);
@@ -233,11 +233,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const obsHeight = chosenType === 'fast_spike' ? 45 : obsWidth;
     const spawnX = Math.random() * (width - obsWidth - 20) + 10;
 
-    let color = '#ff3366'; // Standard pinkish red
-    if (chosenType === 'zigzag') color = '#ff9900'; // Amber
-    if (chosenType === 'fast_spike') color = '#ff0033'; // Crimson
-    if (chosenType === 'splitter') color = '#cc00ff'; // Purple
-    if (chosenType === 'homing') color = '#00ffcc'; // Cyan homing
+    let color = '#ff3366';
+    if (chosenType === 'zigzag') color = '#ff9900';
+    if (chosenType === 'fast_spike') color = '#ff0033';
+    if (chosenType === 'splitter') color = '#cc00ff';
+    if (chosenType === 'homing') color = '#00ffcc';
 
     obstaclesRef.current.push({
       id: Math.random().toString(),
@@ -251,13 +251,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       color,
       rotation: 0,
       rotationSpeed: (Math.random() - 0.5) * 0.1,
-      warningTime: chosenType === 'fast_spike' ? 25 : 0
+      warningTime: chosenType === 'fast_spike' ? 25 : 0,
+      nearMissTriggered: false
     });
   };
 
   // Spawn Collectible items (coins and power-ups)
   const spawnItem = (width: number) => {
-    const isPowerUp = Math.random() < 0.22; // 22% chance for powerup instead of coin
+    const isPowerUp = Math.random() < 0.22;
     const itemX = Math.random() * (width - 40) + 20;
 
     if (isPowerUp) {
@@ -321,7 +322,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // Update Dash cooldown
     if (dashCooldownRef.current < 100 && !isDashingRef.current) {
-      const rechargeRate = selectedSkin.id === 'vortex_glider' ? 25 : 20; // % per second
+      const rechargeRate = selectedSkin.id === 'vortex_glider' ? 25 : 20;
       dashCooldownRef.current = Math.min(100, dashCooldownRef.current + rechargeRate * deltaTime);
     }
     onDashCooldownChange(dashCooldownRef.current);
@@ -361,10 +362,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (isPointerDownRef.current && pointerXRef.current !== null) {
         player.targetX = pointerXRef.current;
       }
-      // Smooth interpolation
       player.x += (player.targetX - player.x) * 0.25;
     } else {
-      // Keyboard / Virtual buttons
       if (keysPressedRef.current['ArrowLeft'] || keysPressedRef.current['a'] || keysPressedRef.current['A'] || moveLeftRef.current) {
         player.x -= speed;
       }
@@ -394,7 +393,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // Spawn Obstacles
     spawnTimerRef.current += deltaTime * 1000;
-    const spawnInterval = Math.max(220, 750 - levelRef.current * 45); // Spawns faster per level
+    const spawnInterval = Math.max(220, 750 - levelRef.current * 45);
     if (spawnTimerRef.current >= spawnInterval) {
       spawnTimerRef.current = 0;
       spawnObstacle(width);
@@ -432,7 +431,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       // Check splitter splitting mid-screen
       if (obs.type === 'splitter' && !obs.hasSplit && obs.y > height * 0.4) {
         obs.hasSplit = true;
-        // Spawn 2 smaller fast fragments
         obstaclesRef.current.push({
           id: Math.random().toString(),
           x: obs.x - 15,
@@ -444,7 +442,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           type: 'standard',
           color: '#ff00ff',
           rotation: 0,
-          rotationSpeed: 0.2
+          rotationSpeed: 0.2,
+          nearMissTriggered: false
         });
         obstaclesRef.current.push({
           id: Math.random().toString(),
@@ -457,13 +456,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           type: 'standard',
           color: '#ff00ff',
           rotation: 0,
-          rotationSpeed: -0.2
+          rotationSpeed: -0.2,
+          nearMissTriggered: false
         });
       }
 
-      // Near-Miss Bonus Detection
+      // Near-Miss Bonus Detection (FIX: only trigger once per obstacle)
       const distToPlayer = Math.hypot(obs.x + obs.width / 2 - player.x, obs.y + obs.height / 2 - player.y);
-      if (distToPlayer < 45 && distToPlayer > 28 && !isDashingRef.current) {
+      if (distToPlayer < 45 && distToPlayer > 28 && !isDashingRef.current && !obs.nearMissTriggered) {
+        obs.nearMissTriggered = true;
         nearMissesRef.current++;
         scoreRef.current += 15;
         soundEngine.playNearMiss(settings.soundEnabled);
@@ -496,12 +497,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const shieldActive = (powerUpTimersRef.current.shield || 0) > 0;
 
         if (shieldActive) {
-          // Shield absorbs hit
           delete powerUpTimersRef.current.shield;
           soundEngine.playShieldHit(settings.soundEnabled);
           soundEngine.vibrate([40, 20, 40], settings.vibrationEnabled);
 
-          // Shield spark particles
           for (let i = 0; i < 25; i++) {
             particlesRef.current.push({
               x: player.x,
@@ -516,13 +515,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             });
           }
           addScorePopup(player.x, player.y - 30, 'SHIELD BROKEN!', '#00ccff');
-          return; // Obstacle destroyed
+          return;
         } else {
-          // GAME OVER HIT
           soundEngine.playExplosion(settings.soundEnabled);
           soundEngine.vibrate([100, 50, 100], settings.vibrationEnabled);
 
-          // Big explosion particles
           for (let i = 0; i < 40; i++) {
             particlesRef.current.push({
               x: player.x,
@@ -547,11 +544,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      // Retain active obstacles inside screen
       if (obs.y < height + 50) {
         nextObstacles.push(obs);
       } else {
-        // Successfully dodged
         scoreRef.current += 2;
       }
     });
@@ -567,7 +562,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       item.y += item.vy * slowMoFactor;
       item.rotation += 0.05;
 
-      // Magnet pull logic
       if (isMagnet || (item.type === 'coin' && isMagnet)) {
         const dx = player.x - item.x;
         const dy = player.y - item.y;
@@ -579,7 +573,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      // Check item collision with player
       const distToPlayer = Math.hypot(item.x - player.x, item.y - player.y);
       if (distToPlayer < item.radius + player.width / 2) {
         if (item.type === 'coin') {
@@ -589,7 +582,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           soundEngine.vibrate([20], settings.vibrationEnabled);
           addScorePopup(item.x, item.y, '+1 COIN', '#ffd700');
 
-          // Gold coin sparkle particles
           for (let i = 0; i < 8; i++) {
             particlesRef.current.push({
               x: item.x,
@@ -604,12 +596,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             });
           }
         } else {
-          // POWER UP PICKUP
           soundEngine.playPowerUp(settings.soundEnabled);
           soundEngine.vibrate([40, 40], settings.vibrationEnabled);
 
           if (item.type === 'nuke') {
-            // Nuke clears all onscreen obstacles into coins/score!
             obstaclesRef.current.forEach(obs => {
               scoreRef.current += 20;
               for (let i = 0; i < 10; i++) {
@@ -627,21 +617,21 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               }
             });
             obstaclesRef.current = [];
-            addScorePopup(player.x, player.y - 40, '💥 NUKE BLAST!', '#ff3300');
+            addScorePopup(player.x, player.y - 40, 'NUKE BLAST!', '#ff3300');
           } else {
             const duration = item.type === 'shield' ? 10000 : 7000;
             powerUpTimersRef.current[item.type] = duration;
             const labelMap: { [key in PowerUpType]: string } = {
-              shield: '🛡️ SHIELD UP!',
-              slow_mo: '⏱️ TIME SLOW!',
-              magnet: '🧲 MAGNET ACTIVE!',
-              nuke: '💥 NUKE!',
-              double_score: '⚡ 2X SCORE!'
+              shield: 'SHIELD UP!',
+              slow_mo: 'TIME SLOW!',
+              magnet: 'MAGNET ACTIVE!',
+              nuke: 'NUKE!',
+              double_score: '2X SCORE!'
             };
             addScorePopup(player.x, player.y - 30, labelMap[item.type], '#00ffcc');
           }
         }
-        return; // Item collected
+        return;
       }
 
       if (item.y < height + 30) {
@@ -710,7 +700,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.rotate(item.rotation);
 
       if (item.type === 'coin') {
-        // Glowing gold coin
         ctx.shadowColor = '#ffd700';
         ctx.shadowBlur = 10;
         ctx.fillStyle = '#ffd700';
@@ -723,7 +712,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.arc(0, 0, item.radius * 0.6, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        // Power-Up orb
         const powerUpColors: { [key in PowerUpType]: string } = {
           shield: '#00ccff',
           slow_mo: '#b026ff',
@@ -740,16 +728,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.arc(0, 0, item.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Icon inside powerup
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const icons: { [key in PowerUpType]: string } = {
-          shield: '🛡️',
-          slow_mo: '⏱️',
-          magnet: '🧲',
-          nuke: '💥',
+          shield: 'S',
+          slow_mo: 'T',
+          magnet: 'M',
+          nuke: 'N',
           double_score: '2X'
         };
         ctx.fillText(icons[item.type], 0, 0);
@@ -769,7 +756,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fillStyle = obs.color;
 
       if (obs.type === 'fast_spike') {
-        // Sharp spike shape
         ctx.beginPath();
         ctx.moveTo(0, -obs.height / 2);
         ctx.lineTo(obs.width / 2, obs.height / 2);
@@ -777,7 +763,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.closePath();
         ctx.fill();
       } else if (obs.type === 'zigzag') {
-        // Diamond obstacle
         ctx.beginPath();
         ctx.moveTo(0, -obs.height / 2);
         ctx.lineTo(obs.width / 2, 0);
@@ -786,9 +771,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.closePath();
         ctx.fill();
       } else {
-        // Standard / Splitter block
         ctx.fillRect(-obs.width / 2, -obs.height / 2, obs.width, obs.height);
-        // Inner detail line
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
         ctx.strokeRect(-obs.width / 4, -obs.height / 4, obs.width / 2, obs.height / 2);
@@ -835,7 +818,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fillRect(-p.width / 2, -p.height / 2, p.width, p.height);
       ctx.strokeRect(-p.width / 2, -p.height / 2, p.width, p.height);
     } else if (selectedSkin.shape === 'ship') {
-      // Spacecraft triangle
       ctx.beginPath();
       ctx.moveTo(0, -p.height / 2);
       ctx.lineTo(p.width / 2, p.height / 2);
@@ -845,18 +827,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fill();
       ctx.stroke();
     } else if (selectedSkin.shape === 'orb') {
-      // Plasma Orb
       ctx.beginPath();
       ctx.arc(0, 0, p.width / 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     } else if (selectedSkin.shape === 'mech') {
-      // Shielded Mech box
       ctx.fillRect(-p.width / 2, -p.height / 2, p.width, p.height);
       ctx.fillStyle = selectedSkin.secondaryColor;
       ctx.fillRect(-p.width / 4, -p.height / 4, p.width / 2, p.height / 2);
     } else if (selectedSkin.shape === 'phoenix') {
-      // Golden Phoenix winged ship
       ctx.beginPath();
       ctx.moveTo(0, -p.height / 2);
       ctx.lineTo(p.width / 1.8, p.height / 3);
@@ -868,7 +847,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fill();
       ctx.stroke();
     } else {
-      // Void Glider polygon
       ctx.beginPath();
       ctx.moveTo(0, -p.height / 2);
       ctx.lineTo(p.width / 2, p.height / 2);
@@ -956,7 +934,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               onPointerLeave={() => (moveLeftRef.current = false)}
               className="w-16 h-16 rounded-full bg-cyan-500/30 border-2 border-cyan-400 text-white font-bold text-2xl flex items-center justify-center active:bg-cyan-500/60 transition-all shadow-lg shadow-cyan-500/20 backdrop-blur-sm"
             >
-              ◀
+              &#9664;
             </button>
             <button
               onPointerDown={() => (moveRightRef.current = true)}
@@ -964,7 +942,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               onPointerLeave={() => (moveRightRef.current = false)}
               className="w-16 h-16 rounded-full bg-cyan-500/30 border-2 border-cyan-400 text-white font-bold text-2xl flex items-center justify-center active:bg-cyan-500/60 transition-all shadow-lg shadow-cyan-500/20 backdrop-blur-sm"
             >
-              ▶
+              &#9654;
             </button>
           </div>
 
@@ -972,8 +950,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             onClick={triggerDash}
             className="pointer-events-auto w-16 h-16 rounded-full bg-amber-500/30 border-2 border-amber-400 text-amber-200 font-bold text-sm flex flex-col items-center justify-center active:bg-amber-500/60 transition-all shadow-lg shadow-amber-500/20 backdrop-blur-sm"
           >
-            <span>⚡</span>
-            <span className="text-[10px] tracking-wider uppercase">DASH</span>
+            <span>DASH</span>
           </button>
         </div>
       )}
@@ -985,7 +962,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             onClick={triggerDash}
             className="px-4 py-2.5 rounded-full bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 font-semibold text-xs flex items-center gap-2 active:bg-cyan-500/40 backdrop-blur-md transition-all shadow-md"
           >
-            <span>⚡ DASH</span>
+            <span>DASH</span>
           </button>
         </div>
       )}
